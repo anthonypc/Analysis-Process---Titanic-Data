@@ -44,13 +44,14 @@ rowsums = apply(cm, 1, sum) # number of instances per class
 colsums = apply(cm, 2, sum) # number of predictions per class
 p = rowsums / n # distribution of instances over the actual classes
 q = colsums / n # distribution of instances over the predicted classes
-accuracy = sum(diag) / n 
-accuracy
+accuracy.nb = sum(diag) / n 
+accuracy.nb
 
 precision = diag / colsums # fraction of correct predictions for a certain class
 recall = diag / rowsums # fraction of instances of a class that were correctly predicted
 f1 = 2 * precision * recall / (precision + recall) # harmonic mean (or a weighted average) of precision and recall
-data.frame(precision, recall, f1) 
+prere.nb <- data.frame(precision, recall, f1) 
+prere.nb
 
 macroPrecision = mean(precision)
 macroRecall = mean(recall)

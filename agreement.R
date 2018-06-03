@@ -20,16 +20,19 @@ length(xgbpred)
 xgbtpred <- testTree_prediction$max_prob - 1
 length(xgbtpred)
 
-agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred, xgbtpred = xgbtpred)
+gbmpred <- solution_boost
+length(gbmpred)
 
-compareSamp.df <- cbind(compare.df[samp,], agreement[2:7])
+agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred, xgbtpred = xgbtpred, gbmpred = gbmpred)
+
+compareSamp.df <- cbind(compare.df[samp,], agreement[2:8])
 
 ## majority voting and validation.
-compareSamp.df$voted <- apply(agreement,1,function(x) names(which.max(table(x))))
+compareSamp.df$voted <- apply(agreement[,c(2,3,5,6,7,8)],1,function(x) names(which.max(table(x))))
 
 ## Comparing the models.
 ## https://stats.stackexchange.com/questions/28523/how-to-get-percentage-agreement-between-a-group-of-factor-columns
-y <- apply(compareSamp.df[,c(1,9:15)], 2, function(x) factor(x, levels=c("0", "1")))
+y <- apply(compareSamp.df[,c(1,9:16)], 2, function(x) factor(x, levels=c("0", "1")))
 mmult <- function(f=`*`, g=sum) 
   function(x, y) apply(y, 2, function(a) apply(x, 1, function(b) g(f(a,b))))
 
@@ -51,13 +54,14 @@ rowsums = apply(cm, 1, sum) # number of instances per class
 colsums = apply(cm, 2, sum) # number of predictions per class
 p = rowsums / n # distribution of instances over the actual classes
 q = colsums / n # distribution of instances over the predicted classes
-accuracy = sum(diag) / n 
-accuracy
+accuracy.ag = sum(diag) / n 
+accuracy.ag
 
 precision = diag / colsums # fraction of correct predictions for a certain class
 recall = diag / rowsums # fraction of instances of a class that were correctly predicted
 f1 = 2 * precision * recall / (precision + recall) # harmonic mean (or a weighted average) of precision and recall
-data.frame(precision, recall, f1) 
+prere.ag <- data.frame(precision, recall, f1) 
+prere.ag
 
 macroPrecision = mean(precision)
 macroRecall = mean(recall)
@@ -118,3 +122,25 @@ data.frame(rwgPrecision, rwgRecall, rwgF1)
 expAccuracy = sum(p*q)
 kappa = (accuracy - expAccuracy) / (1 - expAccuracy)
 kappa
+
+## Model Reviews
+## Collected accuracy measures
+
+accuracy.ag
+accuracy.nb
+accuracy.svm
+accuracy.rf
+accuracy.log
+accuracy.xgb
+accuracy.xgbt
+accuracy.gbm
+
+prere.ag
+prere.nb
+prere.svm
+prere.rf
+prere.log
+prere.xgb
+prere.xgbt
+prere.gbm
+

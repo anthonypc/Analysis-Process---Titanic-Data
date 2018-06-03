@@ -12,6 +12,7 @@ library(DiagrammeR)
 ## On to the actual modelling.
 ## XGBoost
 ## http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html
+## https://cran.r-project.org/web/packages/xgboost/vignettes/xgboostPresentation.html
 ## https://rpubs.com/mharris/multiclass_xgboost
 
 ## Initial transformations of data.
@@ -80,6 +81,8 @@ bstTree_model <- xgb.train(params = xgbTree_params,
 model.xgb <- xgb.dump(bstTree_model, with_stats = T)
 model.xgb[1:10]
 
+xgb.plot.deepness(model = bstTree_model)
+
 # Predict hold-out test set
 testTree_pred <- predict(bstTree_model, newdata = XGBoostTest.dma)
 testTree_prediction <- matrix(testTree_pred, nrow = numberOfClasses,
@@ -118,13 +121,14 @@ rowsums = apply(cm, 1, sum) # number of instances per class
 colsums = apply(cm, 2, sum) # number of predictions per class
 p = rowsums / n # distribution of instances over the actual classes
 q = colsums / n # distribution of instances over the predicted classes
-accuracy = sum(diag) / n 
-accuracy
+accuracy.xgbt = sum(diag) / n 
+accuracy.xgbt
 
 precision = diag / colsums # fraction of correct predictions for a certain class
 recall = diag / rowsums # fraction of instances of a class that were correctly predicted
 f1 = 2 * precision * recall / (precision + recall) # harmonic mean (or a weighted average) of precision and recall
-data.frame(precision, recall, f1) 
+prere.xgbt <- data.frame(precision, recall, f1) 
+prere.xgbt
 
 macroPrecision = mean(precision)
 macroRecall = mean(recall)

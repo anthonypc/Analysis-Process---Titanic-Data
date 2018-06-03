@@ -31,7 +31,11 @@ resultsOne.df$actual <- randomForestNA.df[samp,]$Survived
 table(resultsOne.df)
 
 ## An alternative approach
-caret_matrix <- train(x = randomForestNA.df[,c("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")], y = randomForestNA.df$Survived, data = randomForestNA.df, method = 'rf', trControl = trainControl(method = "cv", number = 5))
+caret_matrix <- train(x = randomForestNA.df[,c("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")], 
+                      y = randomForestNA.df$Survived, 
+                      data = randomForestNA.df, 
+                      method = 'rf', 
+                      trControl = trainControl(method = "cv", number = 5))
 caret_matrix
 caret_matrix$results
 
@@ -69,13 +73,14 @@ colsums = apply(cm, 2, sum) # number of predictions per class
 p = rowsums / n # distribution of instances over the actual classes
 q = colsums / n # distribution of instances over the predicted classes
 
-accuracy = sum(diag) / n 
-accuracy 
+accuracy.rf = sum(diag) / n 
+accuracy.rf 
 
 precision = diag / colsums 
 recall = diag / rowsums 
 f1 = 2 * precision * recall / (precision + recall) 
-data.frame(precision, recall, f1) 
+prere.rf <- data.frame(precision, recall, f1) 
+prere.rf
 
 macroPrecision = mean(precision)
 macroRecall = mean(recall)

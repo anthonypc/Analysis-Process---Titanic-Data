@@ -207,13 +207,14 @@ colsums = apply(cm, 2, sum) # number of predictions per class
 p = rowsums / n # distribution of instances over the actual classes
 q = colsums / n # distribution of instances over the predicted classes
 
-accuracy = sum(diag) / n 
-accuracy 
+accuracy.log = sum(diag) / n 
+accuracy.log 
 
 precision = diag / colsums 
 recall = diag / rowsums 
 f1 = 2 * precision * recall / (precision + recall) 
-data.frame(precision, recall, f1) 
+prere.log <- data.frame(precision, recall, f1) 
+prere.log
 
 macroPrecision = mean(precision)
 macroRecall = mean(recall)
