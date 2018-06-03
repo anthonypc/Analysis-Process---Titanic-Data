@@ -17,16 +17,19 @@ length(rfpred)
 xgbpred <- test_prediction$max_prob - 1
 length(xgbpred)
 
-agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred)
+xgbtpred <- testTree_prediction$max_prob - 1
+length(xgbtpred)
 
-compareSamp.df <- cbind(compare.df[samp,], agreement[2:6])
+agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred, xgbtpred = xgbtpred)
+
+compareSamp.df <- cbind(compare.df[samp,], agreement[2:7])
 
 ## majority voting and validation.
 compareSamp.df$voted <- apply(agreement,1,function(x) names(which.max(table(x))))
 
 ## Comparing the models.
 ## https://stats.stackexchange.com/questions/28523/how-to-get-percentage-agreement-between-a-group-of-factor-columns
-y <- apply(compareSamp.df[,c(1,9:14)], 2, function(x) factor(x, levels=c("0", "1")))
+y <- apply(compareSamp.df[,c(1,9:15)], 2, function(x) factor(x, levels=c("0", "1")))
 mmult <- function(f=`*`, g=sum) 
   function(x, y) apply(y, 2, function(a) apply(x, 1, function(b) g(f(a,b))))
 
@@ -37,7 +40,7 @@ t(y) %**% y
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm <- as.matrix(table(Actual = voted.df$actual, Predicted = voted.df$voted))
+cm <- as.matrix(table(Actual = compareSamp.df$Survived, Predicted = compareSamp.df$voted))
 cm
 
 ## Creating accuracy measures

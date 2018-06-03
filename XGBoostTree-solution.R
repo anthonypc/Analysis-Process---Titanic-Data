@@ -15,8 +15,8 @@ library(DiagrammeR)
 ## https://rpubs.com/mharris/multiclass_xgboost
 
 ## Initial transformations of data.
-XGBoost.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
-XGBoost.df$Survived <- as.numeric(XGBoost.df$Survived)
+XGBoostTree.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
+XGBoostTree.df$Survived <- as.numeric(XGBoostTree.df$Survived)
 
 ## Create a testing and train set
 #set.seed(2017)
@@ -26,73 +26,76 @@ XGBoost.df$Survived <- as.numeric(XGBoost.df$Survived)
 
 ## Using a sparse matrix conversion to address this.
 options(na.action='na.pass')
-XGBoostTrain.ma <- sparse.model.matrix(Survived~.-1, data = XGBoost.df[-samp, ])
-output_Train <- as.numeric(as.factor(XGBoost.df[-samp,]$Survived))-1
+XGBoostTreeTrain.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[-samp, ])
+outputTree_Train <- as.numeric(as.factor(XGBoostTree.df[-samp,]$Survived))-1
 ## Generating the xgb.DMatrix object.
 ## Creating the weights to be applied.
-XGBoostTrain.dma <- xgb.DMatrix(data = XGBoostTrain.ma, label = output_Train)
+XGBoostTreeTrain.dma <- xgb.DMatrix(data = XGBoostTreeTrain.ma, label = outputTree_Train)
 
-XGBoostTest.ma <- sparse.model.matrix(Survived~.-1, data = XGBoost.df[samp, ])
-output_Test <- as.numeric(as.factor(XGBoost.df[samp,]$Survived))-1
+XGBoostTest.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[samp, ])
+outputTree_Test <- as.numeric(as.factor(XGBoostTree.df[samp,]$Survived))-1
 ## Generating the xgb.DMatrix object.
 ## Creating the weights to be applied.
-XGBoostTest.dma <- xgb.DMatrix(data = XGBoostTest.ma, label = output_Test)
+XGBoostTest.dma <- xgb.DMatrix(data = XGBoostTest.ma, label = outputTree_Test)
 
 ## Setting the modelling parameters
-numberOfClasses <- length(unique(XGBoost.df$Survived))
-xgb_params <- list("objective" = "multi:softprob",
+numberOfClasses <- length(unique(XGBoostTree.df$Survived))
+xgbTree_params <- list("objective" = "multi:softprob",
                    "eval_metric" = "mlogloss",
                    "num_class" = numberOfClasses)
 nround    <- 500 # number of XGBoost rounds
 cv.nfold  <- 5
 
 # Fit cv.nfold * cv.nround XGB models and save OOF predictions
-cv_model <- xgb.cv(params = xgb_params,
-                   data = XGBoostTrain.dma,
+cvTree_model <- xgb.cv(max_depth = 7, 
+                  num_parallel_tree = 100, 
+                   subsample = 0.5, 
+                   colsample_bytree = 0.5, 
+                   params = xgbTree_params,
+                   data = XGBoostTreeTrain.dma,
                    nrounds = nround,
                    nfold = cv.nfold,
                    verbose = FALSE,
                    prediction = TRUE)
 
 ## Get the predicted status
-predicted.xgb <- data.frame(cv_model$pred) %>%
+predictedTree.xgb <- data.frame(cvTree_model$pred) %>%
   mutate(max_prob = max.col(., ties.method = "last"),
-         label = output_Train + 1)
-head(predicted.xgb)
+         label = outputTree_Train + 1)
+head(predictedTree.xgb)
 
 ## Assess the prediction
 ## Confusion table
 # 1 = died  2 = survived
-confusionMatrix(factor(predicted.xgb$label), 
-                factor(predicted.xgb$max_prob),
+confusionMatrix(factor(predictedTree.xgb$label), 
+                factor(predictedTree.xgb$max_prob),
                 mode = "everything")
 
 ## Full model time
-bst_model <- xgb.train(params = xgb_params,
-                       eta = 0.001,
-                       data = XGBoostTrain.dma,
+bstTree_model <- xgb.train(params = xgbTree_params,
+                       data = XGBoostTreeTrain.dma,
                        nrounds = nround)
 
 ## Model review
-model.xgb <- xgb.dump(bst_model, with_stats = T)
+model.xgb <- xgb.dump(bstTree_model, with_stats = T)
 model.xgb[1:10]
 
 # Predict hold-out test set
-test_pred <- predict(bst_model, newdata = XGBoostTest.dma)
-test_prediction <- matrix(test_pred, nrow = numberOfClasses,
-                          ncol=length(test_pred)/numberOfClasses) %>%
+testTree_pred <- predict(bstTree_model, newdata = XGBoostTest.dma)
+testTree_prediction <- matrix(testTree_pred, nrow = numberOfClasses,
+                          ncol=length(testTree_pred)/numberOfClasses) %>%
   t() %>%
   data.frame() %>%
-  mutate(label = output_Test + 1,
+  mutate(label = outputTree_Test + 1,
          max_prob = max.col(., "last"))
 
 # confusion matrix of test set
-confusionMatrix(factor(test_prediction$label),
-                factor(test_prediction$max_prob),
+confusionMatrix(factor(testTree_prediction$label),
+                factor(testTree_prediction$max_prob),
                 mode = "everything")
 
 # compute feature importance matrix
-importance_matrix = xgb.importance(feature_names = bst_model$feature_names, model = bst_model)
+importance_matrix = xgb.importance(feature_names = bstTree_model$feature_names, model = bstTree_model)
 head(importance_matrix)
 
 # plot
@@ -100,11 +103,11 @@ gp = xgb.plot.importance(importance_matrix)
 print(gp) 
 
 # Reviewing the tree
-xgb.plot.tree(feature_names = bst_model$feature_names, model = bst_model, trees = 2)
+xgb.plot.tree(feature_names = bstTree_model$feature_names, model = bstTree_model, trees = 2)
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm <- as.matrix(table(Actual = test_prediction$label, Predicted = factor(test_prediction$max_prob)))
+cm <- as.matrix(table(Actual = testTree_prediction$label, Predicted = factor(testTree_prediction$max_prob)))
 cm
 
 ## Creating accuracy measures
