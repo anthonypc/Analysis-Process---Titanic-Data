@@ -14,7 +14,10 @@ length(logpred)
 rfpred <- resultsOne.df$predict
 length(rfpred)
 
-agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred)
+xgbpred <- test_prediction$max_prob - 1
+length(xgbpred)
+
+agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred)
 
 compareSamp.df <- cbind(compare.df[samp,], agreement[2:5])
 
