@@ -9,11 +9,21 @@ library(dplyr)
 library(caret)
 library(DiagrammeR)
 
+# For the learner
+library(mlr)
+library(parallelMap) 
+
 ## On to the actual modelling.
 ## XGBoost
 ## http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html
 ## https://cran.r-project.org/web/packages/xgboost/vignettes/xgboostPresentation.html
 ## https://rpubs.com/mharris/multiclass_xgboost
+## https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/beginners-tutorial-on-xgboost-parameter-tuning-r/tutorial/
+
+## Notes on the technique
+# Extension of GBM, it is a part of the boosted gradiant family
+# Typically can out perform GBM
+# Different in its pruning methods (max depth than prune, inbuilt cross validation, and other)
 
 ## Initial transformations of data.
 XGBoost.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
@@ -22,7 +32,7 @@ XGBoost.df$Survived <- as.numeric(XGBoost.df$Survived)
 ## Create a testing and train set
 #set.seed(2017)
 
-## Data prep for use with xboost
+## Data prep for use with xgboost
 ## Need to explicityly transform all catagorical variables into binary
 
 ## Using a sparse matrix conversion to address this.
@@ -40,20 +50,37 @@ output_Test <- as.numeric(as.factor(XGBoost.df[samp,]$Survived))-1
 XGBoostTest.dma <- xgb.DMatrix(data = XGBoostTest.ma, label = output_Test)
 
 ## Setting the modelling parameters
+## These are specific for trees. For linear regression a different set would be used.
 numberOfClasses <- length(unique(XGBoost.df$Survived))
-xgb_params <- list("objective" = "multi:softprob",
-                   "eval_metric" = "mlogloss",
-                   "num_class" = numberOfClasses)
+xgb_params <- list(booster = "gbtree",
+                   eta = 0.3,
+                   gamma = 0,
+                   max_depth = 3,
+                   min_child_weight = 1,
+                   subsample = 1, 
+                   colsample_bytree = 1)
 nround    <- 500 # number of XGBoost rounds
-cv.nfold  <- 5
+cv.nfold  <- 5 # 
+## Address the imbalanced classes
+survived_cases <- length(XGBoost.df[which(XGBoost.df$Survived == 2),]$Survived)
+deceased_cases <- length(XGBoost.df[which(XGBoost.df$Survived == 1),]$Survived)
+scale_pos_weight = survived_cases/deceased_cases
 
 # Fit cv.nfold * cv.nround XGB models and save OOF predictions
 cv_model <- xgb.cv(params = xgb_params,
                    data = XGBoostTrain.dma,
+                   objective = "multi:softprob",
+                   eval_metric = "mlogloss",
+                   num_class = numberOfClasses,
                    nrounds = nround,
                    nfold = cv.nfold,
-                   verbose = FALSE,
-                   prediction = TRUE)
+                   prediction = TRUE, 
+                   showsd = T, 
+                   stratified = T, 
+                   print_every_n = 10, 
+                   early_stop_rounds = 20, 
+                   maximize = F,
+                   scale_pos_weight = scale_pos_weight)
 
 ## Get the predicted status
 predicted.xgb <- data.frame(cv_model$pred) %>%
@@ -69,12 +96,27 @@ confusionMatrix(factor(predicted.xgb$label),
                 mode = "everything")
 
 ## Full model time
-bst_model <- xgb.train(params = xgb_params,
-                       eta = 0.001,
+## Check for the existance of the tuned parameters, if these exist use these
+## Otherwise just use the training set
+if(typeof(mytune$x) == "list") { train_params <- mytune$x } else { train_params <- xgb_params }
+watchlist <- list(train = XGBoostTrain.dma, test = XGBoostTest.dma)
+## Run gtraining
+bst_model <- xgb.train(params = train_params,
+                       objective = "multi:softprob",
+                       eval_metric = "mlogloss",
+                       num_class = numberOfClasses,
                        data = XGBoostTrain.dma,
-                       nrounds = nround)
+                       nrounds = nround,
+                       print_every_n = 10, 
+                       watchlist = watchlist,
+                       scale_pos_weight = scale_pos_weight)
 
 ## Model review
+label = getinfo(XGBoostTest.dma, "label")
+pred <- predict(bst_model, XGBoostTest.dma)
+err <- as.numeric(sum(as.integer(pred > 0.5) != label))/length(label)
+print(paste("test-error=", err))
+
 model.xgb <- xgb.dump(bst_model, with_stats = T)
 model.xgb[1:10]
 
@@ -102,6 +144,70 @@ print(gp)
 
 # Reviewing the tree
 xgb.plot.tree(feature_names = bst_model$feature_names, model = bst_model, trees = 2)
+
+
+## Adding a part here for further optimisation
+# Create tasks
+XGBoostMLR.df <- XGBoost.df
+XGBoostMLR.df$Survived <- as.factor(XGBoostMLR.df$Survived)
+fact_col <- colnames(XGBoostMLR.df)[sapply(XGBoostMLR.df,is.character)]
+for(i in fact_col) set(XGBoostMLR.df,j=i,value = factor(XGBoostMLR.df[[i]]))
+# One hot encoding
+XGBoostMLR.df <- createDummyFeatures (obj = XGBoostMLR.df, target = "Survived")
+# Creation of the tasks
+traintask <- makeClassifTask (data = XGBoostMLR.df[-samp, ], target = "Survived")
+testtask <- makeClassifTask (data = XGBoostMLR.df[samp, ], target = "Survived")
+
+#create learner
+lrn <- makeLearner("classif.xgboost",
+                   predict.type = "response")
+lrn$par.vals <- list( objective = "multi:softprob", 
+                      eval_metric = "mlogloss", 
+                      nrounds = 100L, 
+                      eta = 0.1)
+#set parameter space
+params <- makeParamSet( makeDiscreteParam("booster",
+                                          values = c("gbtree","gblinear")), 
+                        makeNumericParam("eta",
+                                         lower = 0.1, upper = 1),
+                        makeNumericParam("gamma",
+                                         lower = 0, upper = 1),
+                        makeIntegerParam("max_depth",
+                                         lower = 3L, upper = 10L), 
+                        makeNumericParam("min_child_weight",
+                                         lower = 1L, upper = 10L), 
+                        makeNumericParam("subsample",
+                                         lower = 0.5, upper = 1), 
+                        makeNumericParam("colsample_bytree",
+                                         lower = 0.5, upper = 1))
+#set resampling strategy
+rdesc <- makeResampleDesc("CV", stratify = T, iters=5L)
+#search strategy
+ctrl <- makeTuneControlRandom(maxit = 10L)
+parallelStartSocket(cpus = detectCores())
+#parameter tuning
+mytune <- tuneParams(learner = lrn, 
+                     task = traintask, 
+                     resampling = rdesc, 
+                     measures = acc, 
+                     par.set = params, 
+                     control = ctrl, 
+                     show.info = T)
+
+#set hyperparameters
+lrn_tune <- setHyperPars(lrn, par.vals = mytune$x)
+#train model
+xgmodel <- train(learner = lrn_tune, task = traintask)
+#predict model
+xgpred <- predict(xgmodel, testtask)
+## Assess the prediction
+## Confusion table
+# 1 = died  2 = survived
+confusionMatrix(xgpred$data$response,
+                xgpred$data$truth,
+                mode = "everything")
+## Adjusted parametres
+mytune$x
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
