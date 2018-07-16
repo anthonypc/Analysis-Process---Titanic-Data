@@ -1,7 +1,9 @@
-## Basic Logistic Regression Model
+## Data load and transformation,
 # Additional notes on requirements for the process.
 library(ROCR)
+library(tidyr)
 library(plyr)
+library(dataPreparation)
 library(QuantPsyc)
 library(Hmisc)
 library(aod)
@@ -14,30 +16,6 @@ library(DMwR)
 library(mice)
 
 library(compare)
-
-## Create a matrix for correlations and significance
-## Based on output from cor
-# http://www.r-bloggers.com/more-on-exploring-correlations-in-r/
-cor.prob <- function(X, dfr = nrow(X) - 2) {
-  R <- cor(X)
-  above <- row(R) < col(R)
-  r2 <- R[above]^2
-  Fstat <- r2 * dfr / (1 - r2)
-  R[above] <- 1 - pf(Fstat, 1, dfr)
-  R
-}
-
-## Create a matrix for correlations and significance
-## Based on output from rcorr
-flattenCorrMatrix <- function(cormat, pmat) {
-  ut <- upper.tri(cormat)
-  data.frame(
-    row = rownames(cormat)[row(cormat)[ut]],
-    column = rownames(cormat)[col(cormat)[ut]],
-    cor  =(cormat)[ut],
-    p = pmat[ut]
-  )
-}
 
 
 # Information on the data set https://www.kaggle.com/c/titanic/data
@@ -98,7 +76,6 @@ explore.df$salutation <- as.factor(explore.df$salutation)
 explore.df$deck <- as.factor(explore.df$deck)
 testset.df$salutation <- as.factor(testset.df$salutation)
 testset.df$deck <- as.factor(testset.df$deck)
-
 
 ## Missing embarkment values
 ## https://www.r-bloggers.com/missing-value-treatment/
@@ -208,3 +185,33 @@ ggplot(explore.df, aes(x = deck, fill = Survived)) +
 
 ggplot(explore.df, aes(x = salutation, fill = Survived)) +
   geom_bar(stat='count', position='fill')
+
+## Converting the data into a wide format.
+## Will try to join the cool kids and do this as per tidyverse
+## Apparently it is no illegal to not use tidyverse
+## https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf
+
+toDrop <- c("PassengerId", "Name", "Ticket", "Cabin")
+toWiden <- c("Pclass", "Sex", "Embarked", "deck", "salutation")
+toScale <- c("Age", "Fare")
+
+## Drop unused columns
+explore.ma <- dplyr::select(explore.df, -toDrop)
+testset.ma <- dplyr::select(testset.df,-toDrop)
+
+## Change the ordinal factor to just a factor
+explore.ma$Pclass <- as.factor(as.character(explore.ma$Pclass))
+testset.ma$Pclass <- as.factor(as.character(testset.ma$Pclass))
+
+## Apply dummy variables
+explore.ma <- stats::model.matrix(~., explore.ma)
+testset.ma <- stats::model.matrix(~., testset.ma)
+
+## Building a scale based on the training set to be applied to the test set.
+scales <- dataPreparation::build_scales(dataSet = explore.ma, cols = toScale, verbose = TRUE)
+
+## Apply standard scale to both sets of data
+explore.ma <- fastScale(dataSet = explore.ma, scales = scales, verbose = TRUE)
+testset.ma <- fastScale(dataSet = testset.ma, scales = scales, verbose = TRUE)
+
+

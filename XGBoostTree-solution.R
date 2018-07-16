@@ -9,11 +9,21 @@ library(dplyr)
 library(caret)
 library(DiagrammeR)
 
+# For the learner
+library(mlr)
+library(parallelMap) 
+
 ## On to the actual modelling.
 ## XGBoost
 ## http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html
 ## https://cran.r-project.org/web/packages/xgboost/vignettes/xgboostPresentation.html
 ## https://rpubs.com/mharris/multiclass_xgboost
+## https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/beginners-tutorial-on-xgboost-parameter-tuning-r/tutorial/
+
+## Notes on the technique
+# Extension of GBM, it is a part of the boosted gradiant family
+# Typically can out perform GBM
+# Different in its pruning methods (max depth than prune, inbuilt cross validation, and other)
 
 ## Initial transformations of data.
 XGBoostTree.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
@@ -22,48 +32,61 @@ XGBoostTree.df$Survived <- as.numeric(XGBoostTree.df$Survived)
 ## Create a testing and train set
 #set.seed(2017)
 
-## Data prep for use with xboost
+## Data prep for use with xgboost
 ## Need to explicityly transform all catagorical variables into binary
 
 ## Using a sparse matrix conversion to address this.
 options(na.action='na.pass')
-XGBoostTreeTrain.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[-samp, ])
+XGBoostTrainTree.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[-samp, ])
 outputTree_Train <- as.numeric(as.factor(XGBoostTree.df[-samp,]$Survived))-1
 ## Generating the xgb.DMatrix object.
 ## Creating the weights to be applied.
-XGBoostTreeTrain.dma <- xgb.DMatrix(data = XGBoostTreeTrain.ma, label = outputTree_Train)
+XGBoostTrainTree.dma <- xgb.DMatrix(data = XGBoostTrainTree.ma, label = outputTree_Train)
 
-XGBoostTest.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[samp, ])
+XGBoostTestTree.ma <- sparse.model.matrix(Survived~.-1, data = XGBoostTree.df[samp, ])
 outputTree_Test <- as.numeric(as.factor(XGBoostTree.df[samp,]$Survived))-1
 ## Generating the xgb.DMatrix object.
 ## Creating the weights to be applied.
-XGBoostTest.dma <- xgb.DMatrix(data = XGBoostTest.ma, label = outputTree_Test)
+XGBoostTestTree.dma <- xgb.DMatrix(data = XGBoostTestTree.ma, label = outputTree_Test)
 
 ## Setting the modelling parameters
+## These are specific for trees. For linear regression a different set would be used.
 numberOfClasses <- length(unique(XGBoostTree.df$Survived))
-xgbTree_params <- list("objective" = "multi:softprob",
-                   "eval_metric" = "mlogloss",
-                   "num_class" = numberOfClasses)
+xgb_paramsTree <- list(booster = "gbtree",
+                   eta = 0.3,
+                   gamma = 0,
+                   num_parallel_tree = 100, 
+                   max_depth = 3,
+                   min_child_weight = 1,
+                   subsample = 1, 
+                   colsample_bytree = 1)
 nround    <- 500 # number of XGBoost rounds
-cv.nfold  <- 5
+cv.nfold  <- 5 # 
+## Address the imbalanced classes
+survived_cases <- length(XGBoostTree.df[which(XGBoostTree.df$Survived == 2),]$Survived)
+deceased_cases <- length(XGBoostTree.df[which(XGBoostTree.df$Survived == 1),]$Survived)
+scale_pos_weight = survived_cases/deceased_cases
 
 # Fit cv.nfold * cv.nround XGB models and save OOF predictions
-cvTree_model <- xgb.cv(max_depth = 7, 
-                  num_parallel_tree = 100, 
-                   subsample = 0.5, 
-                   colsample_bytree = 0.5, 
-                   params = xgbTree_params,
-                   data = XGBoostTreeTrain.dma,
+cvTree_model <- xgb.cv(params = xgb_paramsTree,
+                   data = XGBoostTrainTree.dma,
+                   objective = "binary:logistic",
                    nrounds = nround,
                    nfold = cv.nfold,
-                   verbose = FALSE,
-                   prediction = TRUE)
+                   prediction = TRUE, 
+                   showsd = T, 
+                   stratified = T, 
+                   print_every_n = 10, 
+                   early_stop_rounds = 20, 
+                   maximize = F,
+                   scale_pos_weight = scale_pos_weight)
 
 ## Get the predicted status
-predictedTree.xgb <- data.frame(cvTree_model$pred) %>%
-  mutate(max_prob = max.col(., ties.method = "last"),
-         label = outputTree_Train + 1)
-head(predictedTree.xgb)
+predictedTree.xgb <- data.frame(cvTree_model$pred)
+names(predictedTree.xgb) <- "prediction"
+predictedTree.xgb$max_prob <- 0
+predictedTree.xgb[which(predictedTree.xgb$prediction > 0.5),]$max_prob <- 1
+predictedTree.xgb$label <- outputTree_Train
 
 ## Assess the prediction
 ## Confusion table
@@ -73,24 +96,38 @@ confusionMatrix(factor(predictedTree.xgb$label),
                 mode = "everything")
 
 ## Full model time
-bstTree_model <- xgb.train(params = xgbTree_params,
-                       data = XGBoostTreeTrain.dma,
-                       nrounds = nround)
+## Check for the existance of the tuned parameters, if these exist use these
+## Otherwise just use the training set
+if(typeof(mytuneTree$x) == "list") { train_paramsTree <- mytuneTree$x } else { train_paramsTree <- xgb_paramsTree }
+watchlist <- list(train = XGBoostTrainTree.dma, test = XGBoostTestTree.dma)
+## Run gtraining
+bstTree_model <- xgb.train(params = train_paramsTree,
+                           objective = "binary:logistic", 
+                           eval_metric = "error",
+                       data = XGBoostTrainTree.dma,
+                       nrounds = nround,
+                       print_every_n = 10, 
+                       watchlist = watchlist,
+                       scale_pos_weight = scale_pos_weight)
 
 ## Model review
-model.xgb <- xgb.dump(bstTree_model, with_stats = T)
-model.xgb[1:10]
+label = getinfo(XGBoostTestTree.dma, "label")
+pred <- predict(bstTree_model, XGBoostTestTree.dma)
+err <- as.numeric(sum(as.integer(pred > 0.5) != label))/length(label)
+print(paste("test-error=", err))
+
+modelTree.xgb <- xgb.dump(bstTree_model, with_stats = T)
+modelTree.xgb[1:10]
 
 xgb.plot.deepness(model = bstTree_model)
 
 # Predict hold-out test set
-testTree_pred <- predict(bstTree_model, newdata = XGBoostTest.dma)
-testTree_prediction <- matrix(testTree_pred, nrow = numberOfClasses,
-                          ncol=length(testTree_pred)/numberOfClasses) %>%
-  t() %>%
-  data.frame() %>%
-  mutate(label = outputTree_Test + 1,
-         max_prob = max.col(., "last"))
+testTree_pred <- predict(bstTree_model, newdata = XGBoostTestTree.dma)
+predictedTestTree.xgb <- data.frame(testTree_pred)
+names(predictedTestTree.xgb) <- "prediction"
+predictedTestTree.xgb$max_prob <- 0
+predictedTestTree.xgb[which(predictedTestTree.xgb$prediction > 0.5),]$max_prob <- 1
+predictedTestTree.xgb$label <- outputTree_Test
 
 # confusion matrix of test set
 confusionMatrix(factor(testTree_prediction$label),
@@ -108,9 +145,74 @@ print(gp)
 # Reviewing the tree
 xgb.plot.tree(feature_names = bstTree_model$feature_names, model = bstTree_model, trees = 2)
 
+## Adding a part here for further optimisation
+# Create tasks
+XGBoostTreeMLR.df <- XGBoostTree.df
+XGBoostTreeMLR.df$Survived <- as.factor(XGBoostTreeMLR.df$Survived)
+fact_col <- colnames(XGBoostTreeMLR.df)[sapply(XGBoostTreeMLR.df,is.character)]
+for(i in fact_col) set(XGBoostTreeMLR.df,j=i,value = factor(XGBoostTreeMLR.df[[i]]))
+# One hot encoding
+XGBoostTreeMLR.df <- createDummyFeatures (obj = XGBoostTreeMLR.df, target = "Survived")
+# Creation of the tasks
+traintask <- makeClassifTask (data = XGBoostTreeMLR.df[-samp, ], target = "Survived")
+testtask <- makeClassifTask (data = XGBoostTreeMLR.df[samp, ], target = "Survived")
+
+#create learner
+lrn <- makeLearner("classif.xgboost",
+                   predict.type = "response")
+lrn$par.vals <- list( objective = "multi:softprob", 
+                      eval_metric = "mlogloss", 
+                      nrounds = 100L, 
+                      eta = 0.1)
+#set parameter space
+params <- makeParamSet( makeDiscreteParam("booster",
+                                          values = c("gbtree","gblinear")), 
+                        makeNumericParam("eta",
+                                         lower = 0.1, upper = 1),
+                        makeIntegerParam("num_parallel_tree",
+                                         lower = 10L, upper = 200L), 
+                        makeNumericParam("gamma",
+                                         lower = 0, upper = 1),
+                        makeIntegerParam("max_depth",
+                                         lower = 3L, upper = 10L), 
+                        makeNumericParam("min_child_weight",
+                                         lower = 1L, upper = 10L), 
+                        makeNumericParam("subsample",
+                                         lower = 0.5, upper = 1), 
+                        makeNumericParam("colsample_bytree",
+                                         lower = 0.5, upper = 1))
+#set resampling strategy
+rdesc <- makeResampleDesc("CV", stratify = T, iters=5L)
+#search strategy
+ctrl <- makeTuneControlRandom(maxit = 10L)
+parallelStartSocket(cpus = detectCores())
+#parameter tuning
+mytuneTree <- tuneParams(learner = lrn, 
+                     task = traintask, 
+                     resampling = rdesc, 
+                     measures = acc, 
+                     par.set = params, 
+                     control = ctrl, 
+                     show.info = T)
+
+#set hyperparameters
+lrn_tune <- setHyperPars(lrn, par.vals = mytuneTree$x)
+#train model
+xgmodel <- train(learner = lrn_tune, task = traintask)
+#predict model
+xgpred <- predict(xgmodel, testtask)
+## Assess the prediction
+## Confusion table
+# 1 = died  2 = survived
+confusionMatrix(xgpred$data$response,
+                xgpred$data$truth,
+                mode = "everything")
+## Adjusted parametres
+mytuneTree$x
+
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm <- as.matrix(table(Actual = testTree_prediction$label, Predicted = factor(testTree_prediction$max_prob)))
+cm <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(predictedTestTree.xgb$max_prob)))
 cm
 
 ## Creating accuracy measures
