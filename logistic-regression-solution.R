@@ -9,30 +9,6 @@ library(MASS)
 library(ResourceSelection)
 library(car)
 
-## Create a matrix for correlations and significance
-## Based on output from cor
-# http://www.r-bloggers.com/more-on-exploring-correlations-in-r/
-cor.prob <- function(X, dfr = nrow(X) - 2) {
-  R <- cor(X)
-  above <- row(R) < col(R)
-  r2 <- R[above]^2
-  Fstat <- r2 * dfr / (1 - r2)
-  R[above] <- 1 - pf(Fstat, 1, dfr)
-  R
-}
-
-## Create a matrix for correlations and significance
-## Based on output from rcorr
-flattenCorrMatrix <- function(cormat, pmat) {
-  ut <- upper.tri(cormat)
-  data.frame(
-    row = rownames(cormat)[row(cormat)[ut]],
-    column = rownames(cormat)[col(cormat)[ut]],
-    cor  =(cormat)[ut],
-    p = pmat[ut]
-  )
-}
-
 ## GENERALISED LOGISTIC REGRESSION PROCESS
 # Multiple Binary Logistic Regression Example
 # Information on the data set https://www.kaggle.com/c/titanic/data
@@ -198,73 +174,6 @@ fitStep.glm <- predict(fitLogStep.glm, newdata = logReg.df[samp,])
 
 ## http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
 cm = as.matrix(table(Actual = resultsLogStep.df$actual , Predicted = resultsLogStep.df$predict ))
+cm
 
-n = sum(cm) # number of instances
-nc = nrow(cm) # number of classes
-diag = diag(cm) # number of correctly classified instances per class 
-rowsums = apply(cm, 1, sum) # number of instances per class
-colsums = apply(cm, 2, sum) # number of predictions per class
-p = rowsums / n # distribution of instances over the actual classes
-q = colsums / n # distribution of instances over the predicted classes
-
-accuracy.log = sum(diag) / n 
-accuracy.log 
-
-precision = diag / colsums 
-recall = diag / rowsums 
-f1 = 2 * precision * recall / (precision + recall) 
-prere.log <- data.frame(precision, recall, f1) 
-prere.log
-
-macroPrecision = mean(precision)
-macroRecall = mean(recall)
-macroF1 = mean(f1)
-data.frame(macroPrecision, macroRecall, macroF1)
-
-oneVsAll = lapply(1 : nc,
-                  function(i){
-                    v = c(cm[i,i],
-                          rowsums[i] - cm[i,i],
-                          colsums[i] - cm[i,i],
-                          n-rowsums[i] - colsums[i] + cm[i,i]);
-                    return(matrix(v, nrow = 2, byrow = T))})
-oneVsAll
-
-s = matrix(0, nrow = 2, ncol = 2)
-for(i in 1 : nc){s = s + oneVsAll[[i]]}
-s
-
-avgAccuracy = sum(diag(s)) / sum(s)
-avgAccuracy
-
-micro_prf = (diag(s) / apply(s,1, sum))[1];
-micro_prf
-
-mcIndex = which(rowsums==max(rowsums))[1] # majority-class index
-mcAccuracy = as.numeric(p[mcIndex]) 
-mcRecall = 0*p;  mcRecall[mcIndex] = 1
-mcPrecision = 0*p; mcPrecision[mcIndex] = p[mcIndex]
-mcF1 = 0*p; mcF1[mcIndex] = 2 * mcPrecision[mcIndex] / (mcPrecision[mcIndex] + 1)
-mcIndex
-mcAccuracy
-data.frame(mcRecall, mcPrecision, mcF1) 
-
-(n / nc) * matrix(rep(p, nc), nc, nc, byrow=F)
-rgAccuracy = 1 / nc
-rgPrecision = p
-rgRecall = 0*p + 1 / nc
-rgF1 = 2 * p / (nc * p + 1)
-rgAccuracy
-data.frame(rgPrecision, rgRecall, rgF1)
-
-n * p %*% t(p)
-rwgAccurcy = sum(p^2)
-rwgPrecision = p
-rwgRecall = p
-rwgF1 = p
-rwgAccurcy
-data.frame(rwgPrecision, rwgRecall, rwgF1)
-
-expAccuracy = sum(p*q)
-kappa = (accuracy - expAccuracy) / (1 - expAccuracy)
-kappa
+accuracyAssess.log <- accuracyAssess(cm)
