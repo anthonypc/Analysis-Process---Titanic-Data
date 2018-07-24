@@ -98,7 +98,7 @@ confusionMatrix(factor(predicted.xgb$label),
 ## Full model time
 ## Check for the existance of the tuned parameters, if these exist use these
 ## Otherwise just use the training set
-if(typeof(mytune$x) == "list") { train_params <- mytune$x } else { train_params <- xgb_params }
+if(exists("tunedParam")) { train_params <- tunedParam$x } else { train_params <- xgb_params }
 watchlist <- list(train = XGBoostTrain.dma, test = XGBoostTest.dma)
 ## Run gtraining
 bst_model <- xgb.train(params = train_params,
@@ -148,25 +148,27 @@ xgb.plot.tree(feature_names = bst_model$feature_names, model = bst_model, trees 
 
 ## Adding a part here for further optimisation
 # Create tasks
-XGBoostMLR.df <- XGBoost.df
-XGBoostMLR.df$Survived <- as.factor(XGBoostMLR.df$Survived)
-fact_col <- colnames(XGBoostMLR.df)[sapply(XGBoostMLR.df,is.character)]
-for(i in fact_col) set(XGBoostMLR.df,j=i,value = factor(XGBoostMLR.df[[i]]))
+#XGBoostMLR.df <- XGBoost.df
+#XGBoostMLR.df$Survived <- as.factor(XGBoostMLR.df$Survived)
+#fact_col <- colnames(XGBoostMLR.df)[sapply(XGBoostMLR.df,is.character)]
+#for(i in fact_col) set(XGBoostMLR.df,j=i,value = factor(XGBoostMLR.df[[i]]))
 # One hot encoding
-XGBoostMLR.df <- createDummyFeatures (obj = XGBoostMLR.df, target = "Survived")
+#XGBoostMLR.df <- createDummyFeatures (obj = XGBoostMLR.df, target = "Survived")
+XGBoostMLR.df <- data.frame(explore.ma[,-1])
+
 # Creation of the tasks
 traintask <- makeClassifTask (data = XGBoostMLR.df[-samp, ], target = "Survived")
 testtask <- makeClassifTask (data = XGBoostMLR.df[samp, ], target = "Survived")
 
 #create learner
-lrn <- makeLearner("classif.xgboost",
+lrnXgb <- makeLearner("classif.xgboost",
                    predict.type = "response")
-lrn$par.vals <- list( objective = "multi:softprob", 
+lrnXgb$par.vals <- list( objective = "multi:softprob", 
                       eval_metric = "mlogloss", 
                       nrounds = 100L, 
                       eta = 0.1)
 #set parameter space
-params <- makeParamSet( makeDiscreteParam("booster",
+paramsXgb <- makeParamSet( makeDiscreteParam("booster",
                                           values = c("gbtree","gblinear")), 
                         makeNumericParam("eta",
                                          lower = 0.1, upper = 1),
@@ -186,18 +188,18 @@ rdesc <- makeResampleDesc("CV", stratify = T, iters=5L)
 ctrl <- makeTuneControlRandom(maxit = 10L)
 parallelStartSocket(cpus = detectCores())
 #parameter tuning
-mytune <- tuneParams(learner = lrn, 
+tunedParam <- tuneParams(learner = lrnXgb, 
                      task = traintask, 
                      resampling = rdesc, 
                      measures = acc, 
-                     par.set = params, 
+                     par.set = paramsXgb, 
                      control = ctrl, 
                      show.info = T)
 
 #set hyperparameters
-lrn_tune <- setHyperPars(lrn, par.vals = mytune$x)
+lrnXgb_tune <- setHyperPars(lrnXgb, par.vals = tunedParam$x)
 #train model
-xgmodel <- train(learner = lrn_tune, task = traintask)
+xgmodel <- train(learner = lrnXgb_tune, task = traintask)
 #predict model
 xgpred <- predict(xgmodel, testtask)
 ## Assess the prediction
@@ -207,7 +209,7 @@ confusionMatrix(xgpred$data$response,
                 xgpred$data$truth,
                 mode = "everything")
 ## Adjusted parametres
-mytune$x
+tunedParam$x
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html

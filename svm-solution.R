@@ -24,10 +24,13 @@ weights01[2] <- 1 # a class -1 mismatch has a terrible cost
 weights01
 
 ## Modeling tuning.
-#svm.tune <- tune(svm, Converted ~ ., data = trainingTerms, kernel = "radial", ranges = list(cost=10^(-1:2), gamma =  c(.5,1,2)))
+#svm.tune <- tune(svm, Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, 
+#                 data = svm.df[-samp,], class.weights = weights01, 
+#                 kernel = "radial", ranges = list(cost=10^(-1:2), gamma =  c(.5,1,2)))
 #print(svm.tune)
 
-model01.svm <- svm(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, data = svm.df, cost = 0.1, gamma = 0.5, probability = TRUE, class.weights = weights01, subset = -samp)
+model01.svm <- svm(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, 
+                   data = svm.df, cost = 10, gamma = 0.5, probability = TRUE, class.weights = weights01, subset = -samp)
 predict01.svm <- predict(model01.svm, svm.df[samp,], decision.values = FALSE)
 
 ## Cross table of the model's results.
@@ -48,10 +51,10 @@ model01Prob.svm$rowNumber <- rownames(model01Prob.svm)
 model01Prob.svm$rowNumber <- as.numeric(model01Prob.svm$rowNumber)
 
 rowProbs.svm <- merge(svm.df[-samp,], model01Prob.svm,  by = "rowNumber", all.x = TRUE)
-rowProbs.svm$Pred <- svmCheck.df$Pred
+rowProbs.svm$Pred <- predict(model01.svm, svm.df[-samp,], decision.values = FALSE)
 
 ## Create a ROC for the mmodel.
-pr.svm <- prediction(model01Prob.svm$X1, svm.df[rownames(predict01.df), "Survived"])
+pr.svm <- prediction(model01Prob.svm$X1, svm.df[rownames(rowProbs.svm), "Survived"])
 prf.svm <- performance(pr.svm, measure = "tpr", x.measure = "fpr")
 plot(prf.svm)
 

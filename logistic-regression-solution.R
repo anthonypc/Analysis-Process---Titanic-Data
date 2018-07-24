@@ -24,7 +24,6 @@ logReg.df$Survived <- as.factor(logReg.df$Survived)
 processNum.df <- colwise(as.numeric)(logReg.df)
 cor.dataset <- cor(processNum.df[sapply(processNum.df, is.numeric)], use = "na.or.complete", method = "pearson")
 
-
 # Show raw correlations
 cor.dataset
 cor.prob(cor.dataset)
@@ -75,7 +74,7 @@ summary(fitLog.glm)
 summary(fitLogStep.glm)
 
 ## Reviewing the confidence intervals of estimates for features
-cbind(summary(fitLog.glm)$coeff,confint(fitLog.glm), Wald = (coef(summary(fitLog.glm))[,1]/coef(summary(fitLog.glm))[,2])^2)
+cbind(summary(fitLog.glm)$coeff,confint(fitLog.glm)[c(1:14,16)], Wald = (coef(summary(fitLog.glm))[,1]/coef(summary(fitLog.glm))[,2])^2)
 cbind(summary(fitLogStep.glm)$coeff,confint(fitLogStep.glm), Wald = (coef(summary(fitLogStep.glm))[,1]/coef(summary(fitLogStep.glm))[,2])^2)
 
 ## Wald Chi Square
@@ -111,49 +110,49 @@ ggplot(fitStep.glm.prob.df, aes(x = fitStep.glm.prob.df[,1])) +
 contrasts(as.factor(processNum.df$Survived))
 
 ## Create the predictions based on a manually set threshold.
-rowCount <- dim(loadTrain.file[samp,])[1]
+rowCount <- dim(logReg.df[samp,])[1]
 fit.glm.pred <- rep(0, rowCount)
 fit.glm.pred[fit.glm.prob > .5] = 1
 
 resultsLog.df <- NULL
 resultsLog.df$predict <- fit.glm.pred[samp]
-resultsLog.df$actual <- loadTrain.file[samp,]$Survived
+resultsLog.df$actual <- logReg.df[samp,]$Survived
 
 ## Confusion table
 # Check accuracy of the model
 table(resultsLog.df)
 
 ## Generate predicitons for stepwise modified model
-rowCount <- dim(loadTrain.file[samp,])[1]
+rowCount <- dim(logReg.df[samp,])[1]
 fitStep.glm.pred <- rep(0, rowCount)
 fitStep.glm.pred[fitStep.glm.prob > .5] = 1
 
 resultsLogStep.df <- NULL
 resultsLogStep.df$predict <- fitStep.glm.pred
-resultsLogStep.df$actual <- loadTrain.file[samp,]$Survived
+resultsLogStep.df$actual <- logReg.df[samp,]$Survived
 
 ## Confusion table
 # Check accuracy of the model
 table(resultsLogStep.df)
 
 ## Check models against training data.
-classificationError <- mean(fit.glm.pred != loadTrain.file[samp,]$Survived)
+classificationError <- mean(fit.glm.pred != logReg.df[samp,]$Survived)
 print(paste('Accuracy',1-classificationError))
 
-classificationError <- mean(fitStep.glm.pred != loadTrain.file[samp,]$Survived)
+classificationError <- mean(fitStep.glm.pred != logReg.df[samp,]$Survived)
 print(paste('Accuracy',1-classificationError))
 
 ## Hosmer and Lemeshow test of goodness of fit.
 # Significant result indicates that the model is not a good fit.
-hoslem.test(loadTrain.file[samp,]$Survived, fit.glm.pred, g = 10)
-hoslem.test(loadTrain.file[samp,]$Survived, fitStep.glm.pred, g = 10)
+hoslem.test(logReg.df[samp,]$Survived, fit.glm.pred, g = 10)
+hoslem.test(logReg.df[samp,]$Survived, fitStep.glm.pred, g = 10)
 
 ## Create a ROC for the mmodel.
-fit.glm.pred <- predict(fitLog.glm, loadTrain.file[samp,], type = "response")
-fitStep.glm.pred <- predict(fitLogStep.glm, loadTrain.file[samp,], type = "response")
+fit.glm.pred <- predict(fitLog.glm, logReg.df[samp,], type = "response")
+fitStep.glm.pred <- predict(fitLogStep.glm, logReg.df[samp,], type = "response")
 
-fit.glm.pr <- prediction(fit.glm.pred, loadTrain.file$Survived)
-fitStep.glm.pr <- prediction(fitStep.glm.pred, loadTrain.file$Survived)
+fit.glm.pr <- prediction(fit.glm.pred, logReg.df$Survived)
+fitStep.glm.pr <- prediction(fitStep.glm.pred, logReg.df$Survived)
 
 fit.glm.cur <- performance(fit.glm.pr, measure = "tpr", x.measure = "fpr")
 plot(fit.glm.cur)

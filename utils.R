@@ -71,7 +71,7 @@ accuracyAssess <- function(cm){
                       return(matrix(v, nrow = 2, byrow = T))})
   
   s = matrix(0, nrow = 2, ncol = 2)
-  for(i in 1 : nc){results$s = s + oneVsAll[[i]]}
+  for(i in 1 : nc){results$s = s + results$oneVsAll[[i]]}
 
   results$avgAccuracy = sum(diag(s)) / sum(s)
 
@@ -81,10 +81,10 @@ accuracyAssess <- function(cm){
   # Because this is what we actually have here
   
   results$mcIndex = which(rowsums==max(rowsums))[1] # majority-class index
-  results$mcAccuracy = as.numeric(p[mcIndex]) 
-  mcRecall = 0*p;  mcRecall[mcIndex] = 1
-  mcPrecision = 0*p; mcPrecision[mcIndex] = p[mcIndex]
-  mcF1 = 0*p; mcF1[mcIndex] = 2 * mcPrecision[mcIndex] / (mcPrecision[mcIndex] + 1)
+  results$mcAccuracy = as.numeric(p[results$mcIndex]) 
+  mcRecall = 0*p;  mcRecall[results$mcIndex] = 1
+  mcPrecision = 0*p; mcPrecision[results$mcIndex] = p[results$mcIndex]
+  mcF1 = 0*p; mcF1[results$mcIndex] = 2 * mcPrecision[results$mcIndex] / (mcPrecision[results$mcIndex] + 1)
   
   # Expected accuracy for majority class.
   results$mc <- data.frame(mcRecall, mcPrecision, mcF1) 
@@ -109,7 +109,7 @@ accuracyAssess <- function(cm){
   
   ## Kappa
   expAccuracy = sum(p*q)
-  results$kappa = (accuracy - expAccuracy) / (1 - expAccuracy)
+  results$kappa = (results$accuracy - expAccuracy) / (1 - expAccuracy)
 
   return(results)
    

@@ -44,11 +44,11 @@ varImpPlot(caret_matrix$finalModel, main=" Variable importance")
 solution_rf <- predict(caret_matrix, randomForestNA.df[samp,])
 resultsTwo.df <- NULL
 resultsTwo.df$predict <- solution_rf
-resultsTwo.df$actual <- randomForestNA.df$Survived
+resultsTwo.df$actual <- randomForestNA.df[samp,]$Survived
 table(resultsTwo.df)
 
 ## Create a ROC for the model.
-rf.roc <- roc(randomForestNA.df[samp,]$Survived, randomForest.bag$votes[,2])
+rf.roc <- roc(randomForestNA.df[-samp,]$Survived, randomForest.bag$votes[,2])
 plot(rf.roc)
 auc(rf.roc)
 
@@ -56,7 +56,7 @@ auc(rf.roc)
 result.predicted.prob <- predict(caret_matrix, randomForestNA.df[samp,], type = "prob") # Prediction
 
 names(result.predicted.prob) <- c("Died", "Survived")
-result.roc <- roc(as.ordered(randomForestNA.df$Survived), result.predicted.prob$Survived) # Draw ROC curve.
+result.roc <- roc(as.ordered(randomForestNA.df[samp,]$Survived), result.predicted.prob$Survived) # Draw ROC curve.
 plot(result.roc, print.thres="best", print.thres.best.method="closest.topleft")
 
 result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))

@@ -11,7 +11,8 @@ library(DiagrammeR)
 
 # For the learner
 library(mlr)
-library(parallelMap) 
+library(parallelMap)
+library(parallel)
 
 ## On to the actual modelling.
 ## XGBoost
@@ -98,10 +99,10 @@ confusionMatrix(factor(predictedTree.xgb$label),
 ## Full model time
 ## Check for the existance of the tuned parameters, if these exist use these
 ## Otherwise just use the training set
-if(typeof(mytuneTree$x) == "list") { train_paramsTree <- mytuneTree$x } else { train_paramsTree <- xgb_paramsTree }
+if(exists("mytuneTree")) { train_paramsTree <- mytuneTree$x } else { train_paramsTree <- xgb_paramsTree }
 watchlist <- list(train = XGBoostTrainTree.dma, test = XGBoostTestTree.dma)
 ## Run gtraining
-bstTree_model <- xgb.train(params = train_paramsTree,
+bstTree_model <- xgb.train(params = xgb_paramsTree,
                            objective = "binary:logistic", 
                            eval_metric = "error",
                        data = XGBoostTrainTree.dma,
@@ -130,8 +131,8 @@ predictedTestTree.xgb[which(predictedTestTree.xgb$prediction > 0.5),]$max_prob <
 predictedTestTree.xgb$label <- outputTree_Test
 
 # confusion matrix of test set
-confusionMatrix(factor(testTree_prediction$label),
-                factor(testTree_prediction$max_prob),
+confusionMatrix(factor(predictedTestTree.xgb$label),
+                factor(predictedTestTree.xgb$max_prob),
                 mode = "everything")
 
 # compute feature importance matrix
@@ -147,15 +148,16 @@ xgb.plot.tree(feature_names = bstTree_model$feature_names, model = bstTree_model
 
 ## Adding a part here for further optimisation
 # Create tasks
-XGBoostTreeMLR.df <- XGBoostTree.df
-XGBoostTreeMLR.df$Survived <- as.factor(XGBoostTreeMLR.df$Survived)
-fact_col <- colnames(XGBoostTreeMLR.df)[sapply(XGBoostTreeMLR.df,is.character)]
-for(i in fact_col) set(XGBoostTreeMLR.df,j=i,value = factor(XGBoostTreeMLR.df[[i]]))
+#XGBoostTreeMLR.df <- XGBoostTree.df
+#fact_col <- colnames(XGBoostTreeMLR.df)[sapply(XGBoostTreeMLR.df,is.character)]
+#for(i in fact_col) set(XGBoostTreeMLR.df,j=i,value = factor(XGBoostTreeMLR.df[[i]]))
 # One hot encoding
-XGBoostTreeMLR.df <- createDummyFeatures (obj = XGBoostTreeMLR.df, target = "Survived")
+#XGBoostTreeMLR.df <- createDummyFeatures (obj = XGBoostTreeMLR.df, target = "Survived")
+XGBoostTreeMLR.df <- data.frame(explore.ma[,-1])
+#XGBoostTreeMLR.df$Survived <- as.factor(XGBoostTreeMLR.df$Survived)
 # Creation of the tasks
-traintask <- makeClassifTask (data = XGBoostTreeMLR.df[-samp, ], target = "Survived")
-testtask <- makeClassifTask (data = XGBoostTreeMLR.df[samp, ], target = "Survived")
+traintask <- makeClassifTask(data = XGBoostTreeMLR.df[-samp, ], target = "Survived")
+testtask <- makeClassifTask(data = XGBoostTreeMLR.df[samp, ], target = "Survived")
 
 #create learner
 lrn <- makeLearner("classif.xgboost",

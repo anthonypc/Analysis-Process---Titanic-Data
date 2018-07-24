@@ -93,7 +93,9 @@ check.df <- data.frame(actuals = as.character(missingWip.df$Embarked), predicted
 check.df$match <- 0
 check.df[which(as.character(check.df$actuals) == as.character(check.df$predicteds)),]$match <- 1
 
-table(check.df$actuals, check.df$predicteds)
+deckCheck <- table(check.df$actuals, check.df$predicteds)
+deckCheck
+accuracyAssess(deckCheck)
 
 ## Define the function for predicting per row
 replaceEMbarked <- function(x, output){
@@ -111,20 +113,40 @@ explore.df$Embarked <- as.factor(explore.df$Embarked)
 testset.df$Embarked <- as.factor(testset.df$Embarked)
 
 ## Dealing with missing age.
-age.glm <- glm(Age ~ . , data = explore.df[which(explore.df$Age > 0),c(3,5,6,7,8,10,12,13,14)], family = gaussian(link = "identity"))
-age.check <- predict(age.glm, explore.df, type = "response")
-ageCheck <- data.frame(age.check, explore.df$Age)
-ageCheck$diff <- ageCheck$age.check - ageCheck$explore.df.Age
+## Will recombinee the data as per above for the model
+missingWip.df <- rbind(explore.df[,c(1,3:14)],testset.df)
+
+age.glm <- glm(Age ~ . , data = missingWip.df[which(missingWip.df$Age > 0),c(2,4:7,9,11:12)], 
+               family = gaussian(link = "identity"))
+age.check <- predict(age.glm, missingWip.df, type = "response")
+ageCheck <- data.frame(age.check, missingWip.df$Age)
+ageCheck$diff <- ageCheck$age.check - ageCheck$missingWip.df.Age
 plot(ageCheck[ageCheck$diff > 0.001 | ageCheck$diff < -0.001,]$diff)
 sqrt(sum(na.omit(ageCheck$diff)^2))
 
 age.replace <- predict(age.glm, explore.df[which(is.na(explore.df$Age)),], type = "response")
 explore.df[as.numeric(names(age.replace)),]$Age <- age.replace
 
-age.glm <- glm(Age ~ . , data = testset.df[which(testset.df$Age > 0),c(3,5,6,7,8,10,12,13,14)])
-
 age.replace <- predict(age.glm, testset.df[which(is.na(testset.df$Age)),], type = "response")
 testset.df[as.numeric(names(age.replace)),]$Age <- age.replace
+
+## Need to take care of missing fares.
+## This is low priority as there are not so many instances of this.
+missingWip.df <- rbind(explore.df[,c(1,3:14)],testset.df)
+
+fare.glm <- glm(Fare ~ . , data = missingWip.df[which(missingWip.df$Fare > 0),c(2,4:7,9,11:12)], 
+               family = gaussian(link = "identity"))
+fare.check <- predict(fare.glm, missingWip.df, type = "response")
+fareCheck <- data.frame(fare.check, missingWip.df$Fare)
+fareCheck$diff <- fareCheck$fare.check - fareCheck$missingWip.df.Fare
+plot(fareCheck[fareCheck$diff > 0.001 | fareCheck$diff < -0.001,]$diff)
+sqrt(sum(na.omit(fareCheck$diff)^2))
+
+fare.replace <- predict(fare.glm, explore.df[which(is.na(explore.df$Fare)),], type = "response")
+explore.df[as.numeric(names(fare.replace)),]$Fare <- fare.replace
+
+fare.replace <- predict(fare.glm, testset.df[which(is.na(testset.df$Fare)),], type = "response")
+testset.df[as.numeric(names(fare.replace)),]$Fare <- fare.replace
 
 # Review of univariate relationships in the data
 # Produce a correlation matrix with significance.
@@ -204,8 +226,29 @@ explore.ma$Pclass <- as.factor(as.character(explore.ma$Pclass))
 testset.ma$Pclass <- as.factor(as.character(testset.ma$Pclass))
 
 ## Apply dummy variables
-explore.ma <- stats::model.matrix(~., explore.ma)
-testset.ma <- stats::model.matrix(~., testset.ma)
+## Full rank
+#explore.ma <- fastDummies::dummy_cols(explore.ma)
+#testset.ma <- fastDummies::dummy_cols(testset.ma)
+#explore.ma <- explore.ma[,c(4:7,11:41)]
+#testset.ma <- testset.ma[,c(3:6,10:33)]
+
+## Contrasts
+explore.ma$name <- "explore.ma"
+testset.ma$name <- "testset.ma"
+combo.ma <- rbind(explore.ma[,-1], testset.ma)
+## I am combining the two to ensure that both are using the same contrast and that both have all factor levels represented.
+## Need a better method in general, but for now this is faster
+combo.ma <- stats::model.matrix(~., combo.ma)
+
+explore.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 0,c(1:29)]
+testset.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 1,c(1:29)]
+
+#explore.ma <- stats::model.matrix(~., explore.ma)
+#testset.ma <- stats::model.matrix(~., testset.ma)
+
+## Column correction/check
+Missing <- setdiff(names(explore.ma), names(testset.ma))
+Missing
 
 ## Building a scale based on the training set to be applied to the test set.
 scales <- dataPreparation::build_scales(dataSet = explore.ma, cols = toScale, verbose = TRUE)
@@ -214,4 +257,4 @@ scales <- dataPreparation::build_scales(dataSet = explore.ma, cols = toScale, ve
 explore.ma <- fastScale(dataSet = explore.ma, scales = scales, verbose = TRUE)
 testset.ma <- fastScale(dataSet = testset.ma, scales = scales, verbose = TRUE)
 
-
+explore.ma$Survived <- explore.df$Survived

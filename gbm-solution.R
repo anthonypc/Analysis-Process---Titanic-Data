@@ -11,7 +11,7 @@ library(pROC)
 gbm.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
 gbm.df$Survived <- as.factor(gbm.df$Survived)
 
-caret_boost <- train(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, 
+caret_boost <- caret::train(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, 
                      data = gbm.df, 
                      method = 'gbm', 
                      preProcess = c('center', 'scale'), 
