@@ -162,7 +162,7 @@ testtask <- makeClassifTask(data = XGBoostTreeMLR.df[samp, ], target = "Survived
 #create learner
 lrn <- makeLearner("classif.xgboost",
                    predict.type = "response")
-lrn$par.vals <- list( objective = "multi:softprob", 
+lrn$par.vals <- list( objective = "binary:logistic", 
                       eval_metric = "mlogloss", 
                       nrounds = 100L, 
                       eta = 0.1)
@@ -202,12 +202,12 @@ lrn_tune <- setHyperPars(lrn, par.vals = mytuneTree$x)
 #train model
 xgmodel <- train(learner = lrn_tune, task = traintask)
 #predict model
-xgpred <- predict(xgmodel, testtask)
+xgpredt <- predict(xgmodel, testtask)
 ## Assess the prediction
 ## Confusion table
 # 1 = died  2 = survived
-confusionMatrix(xgpred$data$response,
-                xgpred$data$truth,
+confusionMatrix(xgpredt$data$response,
+                xgpredt$data$truth,
                 mode = "everything")
 ## Adjusted parametres
 mytuneTree$x
@@ -218,3 +218,10 @@ cm <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(p
 cm
 
 accuracyAssess.xgbt <- accuracyAssess(cm)
+
+## Much clearer
+# http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
+cm <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(xgpredt$data$response)))
+cm
+
+accuracyAssess.xgbtt <- accuracyAssess(cm)

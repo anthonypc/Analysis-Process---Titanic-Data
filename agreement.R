@@ -17,15 +17,34 @@ length(rfpred)
 xgbpred <- test_prediction$max_prob - 1
 length(xgbpred)
 
-xgbtpred <- testTree_prediction$max_prob - 1
+xgbpredt <- xgpred$data$response
+length(xgbpredt)
+
+xgbttpred <- xgpredt$data$response
+length(xgbttpred)
+
+xgbtpred <- predictedTestTree.xgb$max_prob
 length(xgbtpred)
 
 gbmpred <- solution_boost
 length(gbmpred)
 
-agreement <- data.frame(actual = compare.df[samp,]$Survived, svmpred = svmpred, nbpred = nbpred, logpred = logpred, rfpred = rfpred, xgbpred = xgbpred, xgbtpred = xgbtpred, gbmpred = gbmpred)
+mxnetfpred <- predff.label
+length(mxnetfpred)
 
-compareSamp.df <- cbind(compare.df[samp,], agreement[2:8])
+agreement <- data.frame(actual = compare.df[samp,]$Survived, 
+                        svmpred = svmpred, 
+                        nbpred = nbpred, 
+                        logpred = logpred, 
+                        rfpred = rfpred, 
+                        xgbpred = xgbpred, 
+                        xgbpredt = xgbpredt,
+                        xgbtpred = xgbtpred, 
+                        xgbttpred = xgbttpred, 
+                        gbmpred = gbmpred,
+                        mxnetfpred = mxnetfpred)
+
+compareSamp.df <- cbind(compare.df[samp,], agreement[2:9])
 
 ## majority voting and validation.
 compareSamp.df$voted <- apply(agreement[,c(2,3,5,6,7,8)],1,function(x) names(which.max(table(x))))
@@ -57,8 +76,11 @@ accuracyAssess.svm$accuracy
 accuracyAssess.rf$accuracy
 accuracyAssess.log$accuracy
 accuracyAssess.xgb$accuracy
+accuracyAssesst.xgb$accuracy
 accuracyAssess.xgbt$accuracy
+accuracyAssess.xgbtt$accuracy
 accuracyAssess.gbm$accuracy
+accuracyAssess.mxnf$accuracy
 
 accuracyAssess.ag$PrecRecf1
 accuracyAssess.nb$PrecRecf1
@@ -66,6 +88,20 @@ accuracyAssess.svm$PrecRecf1
 accuracyAssess.rf$PrecRecf1
 accuracyAssess.log$PrecRecf1
 accuracyAssess.xgb$PrecRecf1
+accuracyAssesst.xgb$PrecRecf1
 accuracyAssess.xgbt$PrecRecf1
+accuracyAssess.xgbtt$PrecRecf1
 accuracyAssess.gbm$PrecRecf1
+accuracyAssess.mxnf$PrecRecf1
 
+accuracyAssess.ag$kappa
+accuracyAssess.nb$kappa
+accuracyAssess.svm$kappa
+accuracyAssess.rf$kappa
+accuracyAssess.log$kappa
+accuracyAssess.xgb$kappa
+accuracyAssesst.xgb$kappa
+accuracyAssess.xgbt$kappa
+accuracyAssess.xgbtt$kappa
+accuracyAssess.gbm$kappa
+accuracyAssess.mxnf$kappa

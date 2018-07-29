@@ -217,3 +217,10 @@ cm <- as.matrix(table(Actual = test_prediction$label, Predicted = factor(test_pr
 cm
 
 accuracyAssess.xgb <- accuracyAssess(cm)
+
+## Much clearer
+# http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
+cm <- as.matrix(table(Actual = test_prediction$label, Predicted = xgpred$data$response))
+cm
+
+accuracyAssesst.xgb <- accuracyAssess(cm)
