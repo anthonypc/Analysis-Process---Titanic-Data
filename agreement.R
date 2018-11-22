@@ -44,14 +44,14 @@ agreement <- data.frame(actual = compare.df[samp,]$Survived,
                         gbmpred = gbmpred,
                         mxnetfpred = mxnetfpred)
 
-compareSamp.df <- cbind(compare.df[samp,], agreement[2:9])
+compareSamp.df <- cbind(compare.df[samp,], agreement[2:11])
 
 ## majority voting and validation.
 compareSamp.df$voted <- apply(agreement[,c(2,3,5,6,7,8)],1,function(x) names(which.max(table(x))))
 
 ## Comparing the models.
 ## https://stats.stackexchange.com/questions/28523/how-to-get-percentage-agreement-between-a-group-of-factor-columns
-y <- apply(compareSamp.df[,c(1,9:16)], 2, function(x) factor(x, levels=c("0", "1")))
+y <- apply(compareSamp.df[,c(1,9:18)], 2, function(x) factor(x, levels=c("0", "1")))
 mmult <- function(f=`*`, g=sum) 
   function(x, y) apply(y, 2, function(a) apply(x, 1, function(b) g(f(a,b))))
 

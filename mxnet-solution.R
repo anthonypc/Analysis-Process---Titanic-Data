@@ -7,10 +7,10 @@ library(mxnet)
 mxnet.ma <- explore.ma[,-1]
 
 ## Will need to manually split the frame.
-train.mxn.x = data.matrix(mxnet.ma[-samp, 1:28])
-train.mxn.y = as.numeric(unlist(mxnet.ma[-samp, 29]))-1
-test.mxn.x = data.matrix(mxnet.ma[samp, 1:28])
-test.mxn.y = as.numeric(unlist(mxnet.ma[samp, 29]))-1
+train.mxn.x = data.matrix(mxnet.ma[-samp, 1:25]) # Factors
+train.mxn.y = as.numeric(unlist(mxnet.ma[-samp, 27]))-1 # Response
+test.mxn.x = data.matrix(mxnet.ma[samp, 1:25]) # Factors
+test.mxn.y = as.numeric(unlist(mxnet.ma[samp, 27]))-1 # Response
 
 mx.set.seed(0)
 

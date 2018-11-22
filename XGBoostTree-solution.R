@@ -91,7 +91,7 @@ predictedTree.xgb$label <- outputTree_Train
 
 ## Assess the prediction
 ## Confusion table
-# 1 = died  2 = survived
+# 0 = died  1 = survived
 confusionMatrix(factor(predictedTree.xgb$label), 
                 factor(predictedTree.xgb$max_prob),
                 mode = "everything")
@@ -153,38 +153,37 @@ xgb.plot.tree(feature_names = bstTree_model$feature_names, model = bstTree_model
 #for(i in fact_col) set(XGBoostTreeMLR.df,j=i,value = factor(XGBoostTreeMLR.df[[i]]))
 # One hot encoding
 #XGBoostTreeMLR.df <- createDummyFeatures (obj = XGBoostTreeMLR.df, target = "Survived")
-XGBoostTreeMLR.df <- data.frame(explore.ma[,-1])
-#XGBoostTreeMLR.df$Survived <- as.factor(XGBoostTreeMLR.df$Survived)
+XGBoostTreeMLR.df <- data.frame(explore.ma[,-c(1,27)])
+XGBoostTreeMLR.df$Survived <- as.factor(XGBoostTreeMLR.df$Survived)
 # Creation of the tasks
-traintask <- makeClassifTask(data = XGBoostTreeMLR.df[-samp, ], target = "Survived")
-testtask <- makeClassifTask(data = XGBoostTreeMLR.df[samp, ], target = "Survived")
+exploreInt.ma <- explore.ma[,-c(1,27)] %>%
+  mutate_if(sapply(explore.ma[,-c(1,27)], is.factor), as.numeric)
+exploreInt.ma$Survived <- as.factor(as.numeric(exploreInt.ma$Survived)-1)
+
+traintask <- makeClassifTask(data = exploreInt.ma[-samp,], target = "Survived", positive = 1)
+testtask <- makeClassifTask(data = exploreInt.ma[samp,], target = "Survived")
 
 #create learner
 lrn <- makeLearner("classif.xgboost",
                    predict.type = "response")
 lrn$par.vals <- list( objective = "binary:logistic", 
-                      eval_metric = "mlogloss", 
+                      eval_metric = "error", 
                       nrounds = 100L, 
                       eta = 0.1)
 #set parameter space
-params <- makeParamSet( makeDiscreteParam("booster",
-                                          values = c("gbtree","gblinear")), 
-                        makeNumericParam("eta",
-                                         lower = 0.1, upper = 1),
-                        makeIntegerParam("num_parallel_tree",
-                                         lower = 10L, upper = 200L), 
-                        makeNumericParam("gamma",
-                                         lower = 0, upper = 1),
-                        makeIntegerParam("max_depth",
-                                         lower = 3L, upper = 10L), 
-                        makeNumericParam("min_child_weight",
-                                         lower = 1L, upper = 10L), 
-                        makeNumericParam("subsample",
-                                         lower = 0.5, upper = 1), 
-                        makeNumericParam("colsample_bytree",
-                                         lower = 0.5, upper = 1))
+params <- makeParamSet(
+  # The number of trees in the model (each one built sequentially)
+  makeIntegerParam("nrounds", lower = 100, upper = 500),
+  # number of splits in each tree
+  makeIntegerParam("max_depth", lower = 1, upper = 10),
+  # "shrinkage" - prevents overfitting
+  makeNumericParam("eta", lower = .1, upper = .5),
+  # L2 regularization - prevents overfitting
+  makeNumericParam("lambda", lower = -1, upper = 0, trafo = function(x) 10^x)
+)
+
 #set resampling strategy
-rdesc <- makeResampleDesc("CV", stratify = T, iters=5L)
+rdesc <- makeResampleDesc("CV", stratify = T, iters = 5L)
 #search strategy
 ctrl <- makeTuneControlRandom(maxit = 10L)
 parallelStartSocket(cpus = detectCores())
@@ -192,7 +191,6 @@ parallelStartSocket(cpus = detectCores())
 mytuneTree <- tuneParams(learner = lrn, 
                      task = traintask, 
                      resampling = rdesc, 
-                     measures = acc, 
                      par.set = params, 
                      control = ctrl, 
                      show.info = T)
@@ -200,7 +198,7 @@ mytuneTree <- tuneParams(learner = lrn,
 #set hyperparameters
 lrn_tune <- setHyperPars(lrn, par.vals = mytuneTree$x)
 #train model
-xgmodel <- train(learner = lrn_tune, task = traintask)
+xgmodel <- mlr::train(lrn_tune, task = traintask)
 #predict model
 xgpredt <- predict(xgmodel, testtask)
 ## Assess the prediction
@@ -214,14 +212,14 @@ mytuneTree$x
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(predictedTestTree.xgb$max_prob)))
-cm
+cmx <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(predictedTestTree.xgb$max_prob)))
+cmx
 
-accuracyAssess.xgbt <- accuracyAssess(cm)
+accuracyAssess.xgbt <- accuracyAssess(cmx)
 
 ## Much clearer
 # http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(xgpredt$data$response)))
-cm
+cmt <- as.matrix(table(Actual = predictedTestTree.xgb$label, Predicted = factor(xgpredt$data$response)))
+cmt
 
-accuracyAssess.xgbtt <- accuracyAssess(cm)
+accuracyAssess.xgbtt <- accuracyAssess(cmt)

@@ -107,7 +107,7 @@ ggplot(fitStep.glm.prob.df, aes(x = fitStep.glm.prob.df[,1])) +
   geom_line(stat = "density")
 
 ## Create and set contrasts.
-contrasts(as.factor(processNum.df$Survived))
+contrasts(as.factor(logReg.df$Survived))
 
 ## Create the predictions based on a manually set threshold.
 rowCount <- dim(logReg.df[samp,])[1]
@@ -135,29 +135,29 @@ resultsLogStep.df$actual <- logReg.df[samp,]$Survived
 # Check accuracy of the model
 table(resultsLogStep.df)
 
-## Check models against training data.
-classificationError <- mean(fit.glm.pred != logReg.df[samp,]$Survived)
-print(paste('Accuracy',1-classificationError))
+## Create a ROC for the mmodel.
+fit.glm.pred <- predict(fitLog.glm, logReg.df[samp,], type = "response")
+fitStep.glm.pred <- predict(fitLogStep.glm, logReg.df[samp,], type = "response")
 
-classificationError <- mean(fitStep.glm.pred != logReg.df[samp,]$Survived)
-print(paste('Accuracy',1-classificationError))
+fit.glm.pr <- prediction(fit.glm.pred, logReg.df[samp,]$Survived)
+fitStep.glm.pr <- prediction(fitStep.glm.pred, logReg.df[samp,]$Survived)
+
+fit.glm.cur <- performance(fit.glm.pr, measure = "tpr", x.measure = "fpr")
+plot(fit.glm.cur)
+fitStep.glm.cur <- performance(fitStep.glm.pr, measure = "tpr", x.measure = "fpr")
+plot(fitStep.glm.cur)
 
 ## Hosmer and Lemeshow test of goodness of fit.
 # Significant result indicates that the model is not a good fit.
 hoslem.test(logReg.df[samp,]$Survived, fit.glm.pred, g = 10)
 hoslem.test(logReg.df[samp,]$Survived, fitStep.glm.pred, g = 10)
 
-## Create a ROC for the mmodel.
-fit.glm.pred <- predict(fitLog.glm, logReg.df[samp,], type = "response")
-fitStep.glm.pred <- predict(fitLogStep.glm, logReg.df[samp,], type = "response")
+## Check models against training data.
+classificationError <- mean(fit.glm.pred != logReg.df[samp,]$Survived)
+print(paste('Accuracy',1-classificationError))
 
-fit.glm.pr <- prediction(fit.glm.pred, logReg.df$Survived)
-fitStep.glm.pr <- prediction(fitStep.glm.pred, logReg.df$Survived)
-
-fit.glm.cur <- performance(fit.glm.pr, measure = "tpr", x.measure = "fpr")
-plot(fit.glm.cur)
-fitStep.glm.cur <- performance(fitStep.glm.pr, measure = "tpr", x.measure = "fpr")
-plot(fitStep.glm.cur)
+classificationError <- mean(fitStep.glm.pred != logReg.df[samp,]$Survived)
+print(paste('Accuracy',1-classificationError))
 
 fit.aucd <- performance(fit.glm.pr, measure = "auc")
 fit.aucd <- fit.aucd@y.values[[1]]

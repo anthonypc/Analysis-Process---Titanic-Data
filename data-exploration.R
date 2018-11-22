@@ -35,7 +35,6 @@ sapply(loadTest.file, function(x) {sum(is.na(x))})
 
 ## Initial transformations of data.
 explore.df <- loadTrain.file
-
 explore.df$Survived <- as.factor(explore.df$Survived)
 explore.df$Pclass <- as.ordered(explore.df$Pclass)
 explore.df$PassengerId <- as.factor(explore.df$PassengerId)
@@ -45,7 +44,6 @@ explore.df$Sex <- as.factor(explore.df$Sex)
 testset.df <- loadTest.file
 testset.df$Pclass <- as.ordered(testset.df$Pclass)
 testset.df$PassengerId <- as.factor(testset.df$PassengerId)
-testset.df$Embarked <- as.factor(testset.df$Embarked)
 testset.df$Cabin <- as.factor(testset.df$Cabin)
 testset.df$Sex <- as.factor(testset.df$Sex)
 
@@ -71,6 +69,15 @@ testset.df[which(testset.df$salutation == "Mme"),]$salutation <- "Mrs"
 testset.df[which(testset.df$salutation == "Mlle"),]$salutation <- "Miss"
 testset.df[which(testset.df$salutation == "Don"),]$salutation <- "Sir"
 testset.df[which(testset.df$salutation == "Dona"),]$salutation <- "Lady"
+
+## Need to look at collapsing the high status/rare salutaions
+status <- c("Dr","Lady","Rev","Col", "Sir", "Capt", "Major") ## There might be an issue here in merging M and F salutations
+explore.df[which(explore.df$salutation %in% status),]$salutation <- "Status"
+testset.df[which(testset.df$salutation %in% status),]$salutation <- "Status"
+
+deck <- c("G", "T") ## There might be an issue here in merging M and F salutations
+explore.df[which(explore.df$deck %in% deck),]$deck <- "GT"
+testset.df[which(testset.df$deck %in% deck),]$deck <- "GT"
 
 explore.df$salutation <- as.factor(explore.df$salutation)
 explore.df$deck <- as.factor(explore.df$deck)
@@ -101,12 +108,17 @@ accuracyAssess(deckCheck)
 replaceEMbarked <- function(x, output){
   na.pred <- predict(Embarked.rpart, x)
   print(x)
-  as.factor(colnames(na.pred)[apply(na.pred, 1, which.max)])
+  colnames(na.pred)[apply(na.pred, 1, which.max)]
 }
 ## Apply the function and replace the missing values
 namesEmb <- rownames(explore.df[is.na(explore.df$Embarked), ])
 for(i in namesEmb){
   explore.df[i,]$Embarked <- replaceEMbarked(explore.df[i,])
+}
+
+namesEmb <- rownames(explore.df[is.na(testset.df$Embarked), ])
+for(i in namesEmb){
+  testset.df[i,]$Embarked <- replaceEMbarked(testset.df[i,])
 }
 
 explore.df$Embarked <- as.factor(explore.df$Embarked)
@@ -227,10 +239,10 @@ testset.ma$Pclass <- as.factor(as.character(testset.ma$Pclass))
 
 ## Apply dummy variables
 ## Full rank
-#explore.ma <- fastDummies::dummy_cols(explore.ma)
-#testset.ma <- fastDummies::dummy_cols(testset.ma)
-#explore.ma <- explore.ma[,c(4:7,11:41)]
-#testset.ma <- testset.ma[,c(3:6,10:33)]
+explore.ma <- fastDummies::dummy_cols(explore.ma)
+testset.ma <- fastDummies::dummy_cols(testset.ma)
+explore.ma <- explore.ma[,c(1,4:7,13:33)]
+testset.ma <- testset.ma[,c(3:6,10:30)]
 
 ## Contrasts
 explore.ma$name <- "explore.ma"
@@ -240,8 +252,9 @@ combo.ma <- rbind(explore.ma[,-1], testset.ma)
 ## Need a better method in general, but for now this is faster
 combo.ma <- stats::model.matrix(~., combo.ma)
 
-explore.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 0,c(1:29)]
-testset.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 1,c(1:29)]
+## Splitting the frames based on the name flag
+explore.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 0,c(1:27)]
+testset.ma <- combo.ma[combo.ma[,"nametestset.ma"] == 1,c(1:27)]
 
 #explore.ma <- stats::model.matrix(~., explore.ma)
 #testset.ma <- stats::model.matrix(~., testset.ma)

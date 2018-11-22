@@ -6,7 +6,7 @@ library(randomForest)
 library(caret)
 library(pROC)
 
-randomForest.df <- explore.df[,c(2,3,5,6,7,8,10,12)]
+randomForest.df <- explore.df[,c(2,3,5,6,7,8,10,12,14)]
 randomForest.df$Survived <- as.ordered(randomForest.df$Survived)
 
 ## Create a testing and train set
@@ -15,13 +15,16 @@ randomForest.df$Survived <- as.ordered(randomForest.df$Survived)
 
 ## Address the missing values in the data
 if(dim(randomForest.df[is.na(randomForest.df),])[1] > 0){
-  randomForestNA.df <- rfImpute(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = randomForest.df)
+  randomForestNA.df <- rfImpute(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, data = randomForest.df)
 } else {
   randomForestNA.df <- randomForest.df
 }
 
 ## Returning the results of the analysis with the new set
-randomForest.bag <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = randomForestNA.df, subset = -samp, mtry = 7, importance = TRUE)
+randomForest.bag <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, 
+                                 data = randomForestNA.df, 
+                                 subset = -samp, 
+                                 mtry = 7, importance = TRUE)
 randomForest.bag
 
 yhat.bag <- predict (randomForest.bag, newdata = randomForestNA.df[samp,]) 
@@ -31,10 +34,11 @@ resultsOne.df$actual <- randomForestNA.df[samp,]$Survived
 table(resultsOne.df)
 
 ## An alternative approach
-caret_matrix <- train(x = randomForestNA.df[,c("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")], 
+caret_matrix <- train(x = randomForestNA.df[,c("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked", "salutation")], 
                       y = randomForestNA.df$Survived, 
                       data = randomForestNA.df, 
                       method = 'rf', 
+                      subset = -samp,
                       trControl = trainControl(method = "cv", number = 5))
 caret_matrix
 caret_matrix$results
@@ -62,8 +66,11 @@ plot(result.roc, print.thres="best", print.thres.best.method="closest.topleft")
 result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))
 print(result.coords)#to get threshold and accuracy
 
+as.matrix(table(Actual = resultsOne.df$actual , Predicted = resultsOne.df$predict ))
+as.matrix(table(Actual = resultsTwo.df$actual , Predicted = resultsTwo.df$predict ))
+
 ## http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
-cm = as.matrix(table(Actual = resultsOne.df$actual , Predicted = resultsOne.df$predict ))
+cm = as.matrix(table(Actual = resultsTwo.df$actual , Predicted = resultsTwo.df$predict ))
 cm
 
 accuracyAssess.rf <- accuracyAssess(cm)
