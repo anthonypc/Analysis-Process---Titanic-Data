@@ -32,6 +32,9 @@ length(gbmpred)
 mxnetfpred <- predff.label
 length(mxnetfpred)
 
+bayespred <- yrep_stan_fix
+length(bayespred)
+
 agreement <- data.frame(actual = compare.df[samp,]$Survived, 
                         svmpred = svmpred, 
                         nbpred = nbpred, 
@@ -42,16 +45,17 @@ agreement <- data.frame(actual = compare.df[samp,]$Survived,
                         xgbtpred = xgbtpred, 
                         xgbttpred = xgbttpred, 
                         gbmpred = gbmpred,
-                        mxnetfpred = mxnetfpred)
+                        mxnetfpred = mxnetfpred,
+                        bayespred = bayespred)
 
-compareSamp.df <- cbind(compare.df[samp,], agreement[2:11])
+compareSamp.df <- cbind(compare.df[samp,], agreement[2:12])
 
 ## majority voting and validation.
-compareSamp.df$voted <- apply(agreement[,c(2,3,5,6,7,8)],1,function(x) names(which.max(table(x))))
+compareSamp.df$voted <- apply(agreement[,c(5,9,12)],1,function(x) names(which.max(table(x))))
 
 ## Comparing the models.
 ## https://stats.stackexchange.com/questions/28523/how-to-get-percentage-agreement-between-a-group-of-factor-columns
-y <- apply(compareSamp.df[,c(1,9:18)], 2, function(x) factor(x, levels=c("0", "1")))
+y <- apply(compareSamp.df[,c(1,9:19)], 2, function(x) factor(x, levels=c("0", "1")))
 mmult <- function(f=`*`, g=sum) 
   function(x, y) apply(y, 2, function(a) apply(x, 1, function(b) g(f(a,b))))
 
@@ -81,6 +85,7 @@ accuracyAssess.xgbt$accuracy
 accuracyAssess.xgbtt$accuracy
 accuracyAssess.gbm$accuracy
 accuracyAssess.mxnf$accuracy
+accuracyAssess.by$accuracy
 
 accuracyAssess.ag$PrecRecf1
 accuracyAssess.nb$PrecRecf1
@@ -93,6 +98,7 @@ accuracyAssess.xgbt$PrecRecf1
 accuracyAssess.xgbtt$PrecRecf1
 accuracyAssess.gbm$PrecRecf1
 accuracyAssess.mxnf$PrecRecf1
+accuracyAssess.by$PrecRecf1
 
 accuracyAssess.ag$kappa
 accuracyAssess.nb$kappa
@@ -105,3 +111,5 @@ accuracyAssess.xgbt$kappa
 accuracyAssess.xgbtt$kappa
 accuracyAssess.gbm$kappa
 accuracyAssess.mxnf$kappa
+accuracyAssess.by$kappa
+
