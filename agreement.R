@@ -1,6 +1,6 @@
 ## Checking the agreement between the two models.
 ## Actual Data
-compare.df <- explore.df[,c(2,3,5,6,7,8,10,12)]
+compare.df <- explore.df[,c(2,3,5,6,7,8,10,12,13,14)]
 
 nbpred <- predicted.nb
 length(nbpred)
@@ -51,7 +51,7 @@ agreement <- data.frame(actual = compare.df[samp,]$Survived,
 compareSamp.df <- cbind(compare.df[samp,], agreement[2:12])
 
 ## majority voting and validation.
-compareSamp.df$voted <- apply(agreement[,c(5,9,12)],1,function(x) names(which.max(table(x))))
+compareSamp.df$voted <- apply(agreement[,c(5,9,10,12)],1,function(x) names(which.max(table(x))))
 
 ## Comparing the models.
 ## https://stats.stackexchange.com/questions/28523/how-to-get-percentage-agreement-between-a-group-of-factor-columns

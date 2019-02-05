@@ -116,7 +116,7 @@ for(i in namesEmb){
   explore.df[i,]$Embarked <- replaceEMbarked(explore.df[i,])
 }
 
-namesEmb <- rownames(explore.df[is.na(testset.df$Embarked), ])
+namesEmb <- rownames(testset.df[is.na(testset.df$Embarked), ])
 for(i in namesEmb){
   testset.df[i,]$Embarked <- replaceEMbarked(testset.df[i,])
 }

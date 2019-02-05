@@ -191,6 +191,20 @@ names(outSample2.df) <- c("Trials")
 yrep_stan_fix <- round(colMeans(outSample2.by))
 table("stan_glm" = yrep_stan_fix, "y_true" = bayes.df[samp,]$Survived)
 
+check <- NULL
+check <- data.frame(prop = colMeans(outSample2.by), actual = test.mxn.y)
+ggplot(check, aes(x=prop, y=cumsum(actual))) + geom_line() + geom_point()
+
+## Cumulative total by propensity
+ggplot(check,aes(x=prop, color=actual)) + geom_step(aes(y=..y..),stat="ecdf")
+ggplot(check,aes(y=prop, x=as.factor(actual))) + geom_boxplot()
+
+## Set a different cut off
+check.df <- data.frame(pred = colMeans(outSample2.by), actual = test.mxn.y, naive = round(colMeans(outSample2.by)))
+check.df$cutoff <- 0
+check.df[check.df$pred > 0.6,]$cutoff <- 1
+accuracyAssess(as.matrix(table(Actual = check.df$actual, Predicted = check.df$cutoff )))
+
 ## http://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
 cm = as.matrix(table(Actual = test.mxn.y, Predicted = yrep_stan_fix ))
 cm

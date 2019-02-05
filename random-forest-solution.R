@@ -14,12 +14,12 @@ randomForest.df$Survived <- as.ordered(randomForest.df$Survived)
 #samp <- sample(nrow(randomForest.df), 0.6 * nrow(randomForest.df))
 
 ## Address the missing values in the data
-if(dim(randomForest.df[is.na(randomForest.df),])[1] > 0){
-  randomForestNA.df <- rfImpute(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, data = randomForest.df)
-} else {
-  randomForestNA.df <- randomForest.df
-}
-
+#if(dim(randomForest.df[is.na(randomForest.df),])[1] > 0){
+#  randomForestNA.df <- rfImpute(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, data = randomForest.df)
+#} else {
+#  randomForestNA.df <- randomForest.df
+#}
+randomForestNA.df <- randomForest.df
 ## Returning the results of the analysis with the new set
 randomForest.bag <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + salutation, 
                                  data = randomForestNA.df, 

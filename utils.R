@@ -6,6 +6,18 @@
 set.seed(2017)
 samp <- sample(nrow(explore.df), 0.6 * nrow(explore.df))
 
+## Setting up the working directory for all data file references.
+# Ensure all data files for use are in the working directory.
+workingDirectory <- "D://data//other-projects//R//titanic" # Place all data files here #
+setwd(workingDirectory)
+work_dir <- getwd()
+
+## Function for exporting tables to CSVs. 
+##Directory path other than work directory and extension needs to be defined 'x', 'y' is the table to be exported.
+file_output <- function (x, y){
+  path <- paste(work_dir, x, sep ="")
+  write.table(y, file = path, sep = ",", row.names = FALSE)
+}
 
 ## Create a matrix for correlations and significance
 ## Based on output from cor
@@ -113,4 +125,20 @@ accuracyAssess <- function(cm){
 
   return(results)
    
+}
+
+## Return the kappa
+kappaOnline <- function(x, y){
+  cm <- table(x, y)
+  n = sum(cm) # number of instances
+  nc = nrow(cm) # number of classes
+  diag = diag(cm) # number of correctly classified instances per class 
+  rowsums = apply(cm, 1, sum) # number of instances per class
+  colsums = apply(cm, 2, sum) # number of predictions per class
+  p = rowsums / n # distribution of instances over the actual classes
+  q = colsums / n # distribution of instances over the predicted classes
+  accuracy = sum(diag) / n 
+  ## Kappa
+  expAccuracy = sum(p*q)
+  (accuracy - expAccuracy) / (1 - expAccuracy)
 }

@@ -8,6 +8,7 @@ library(Matrix)
 library(dplyr)
 library(caret)
 library(DiagrammeR)
+library(pROC)
 
 # For the learner
 library(mlr)
@@ -27,7 +28,7 @@ library(parallel)
 # Different in its pruning methods (max depth than prune, inbuilt cross validation, and other)
 
 ## Initial transformations of data.
-XGBoostTree.df <- explore.df[,c(2,3,5,6,7,8,10,12:14)]
+XGBoostTree.df <- explore.df[,c(2,3,5,6,7,8,10,12,13,14)]
 XGBoostTree.df$Survived <- as.numeric(XGBoostTree.df$Survived)
 
 ## Create a testing and train set
@@ -54,10 +55,10 @@ XGBoostTestTree.dma <- xgb.DMatrix(data = XGBoostTestTree.ma, label = outputTree
 ## These are specific for trees. For linear regression a different set would be used.
 numberOfClasses <- length(unique(XGBoostTree.df$Survived))
 xgb_paramsTree <- list(booster = "gbtree",
-                   eta = 0.3,
+                   eta = 0.01,
                    gamma = 0,
                    num_parallel_tree = 100, 
-                   max_depth = 3,
+                   max_depth = 20,
                    min_child_weight = 1,
                    subsample = 1, 
                    colsample_bytree = 1)
@@ -104,10 +105,10 @@ watchlist <- list(train = XGBoostTrainTree.dma, test = XGBoostTestTree.dma)
 ## Run gtraining
 bstTree_model <- xgb.train(params = xgb_paramsTree,
                            objective = "binary:logistic", 
-                           eval_metric = "error",
+                           eval_metric = "auc",
                        data = XGBoostTrainTree.dma,
                        nrounds = nround,
-                       print_every_n = 10, 
+                       print_every_n = 50, 
                        watchlist = watchlist,
                        scale_pos_weight = scale_pos_weight)
 
@@ -127,8 +128,21 @@ testTree_pred <- predict(bstTree_model, newdata = XGBoostTestTree.dma)
 predictedTestTree.xgb <- data.frame(testTree_pred)
 names(predictedTestTree.xgb) <- "prediction"
 predictedTestTree.xgb$max_prob <- 0
-predictedTestTree.xgb[which(predictedTestTree.xgb$prediction > 0.5),]$max_prob <- 1
+predictedTestTree.xgb[which(predictedTestTree.xgb$prediction > 0.2),]$max_prob <- 1
 predictedTestTree.xgb$label <- outputTree_Test
+
+## AUC
+result.predicted.prob <- predict(bstTree_model, XGBoostTestTree.dma, type="prob") # Prediction
+
+result.roc <- roc(XGBoostTree.df[samp, ]$Survived, result.predicted.prob) # Draw ROC curve.
+plot(result.roc, print.thres="best", print.thres.best.method="closest.topleft")
+
+result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))
+print(result.coords)#to get threshold and accuracy
+
+## Cumulative total by propensity
+ggplot(predictedTestTree.xgb,aes(x=prediction, color=label)) + geom_step(aes(y=..y..),stat="ecdf")
+ggplot(predictedTestTree.xgb,aes(y=prediction, x=as.factor(label))) + geom_boxplot()
 
 # confusion matrix of test set
 confusionMatrix(factor(predictedTestTree.xgb$label),
@@ -167,7 +181,7 @@ testtask <- makeClassifTask(data = exploreInt.ma[samp,], target = "Survived")
 lrn <- makeLearner("classif.xgboost",
                    predict.type = "response")
 lrn$par.vals <- list( objective = "binary:logistic", 
-                      eval_metric = "error", 
+                      eval_metric = "aucpr", 
                       nrounds = 100L, 
                       eta = 0.1)
 #set parameter space
@@ -198,9 +212,9 @@ mytuneTree <- tuneParams(learner = lrn,
 #set hyperparameters
 lrn_tune <- setHyperPars(lrn, par.vals = mytuneTree$x)
 #train model
-xgmodel <- mlr::train(lrn_tune, task = traintask)
+xgtmodel <- mlr::train(lrn_tune, task = traintask)
 #predict model
-xgpredt <- predict(xgmodel, testtask)
+xgpredt <- predict(xgtmodel, testtask)
 ## Assess the prediction
 ## Confusion table
 # 1 = died  2 = survived
